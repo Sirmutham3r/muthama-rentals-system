@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tenant Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; background: #F7F4EE; padding: 20px; color: #12211C;}
+  .card { max-width: 450px; background: #FFF; padding: 30px; margin: 40px auto; border-radius: 12px; border: 1px solid #C4D2C6; box-shadow: 0 4px 14px rgba(0,0,0,0.05); }
+  
+  .btn { display: block; width: 100%; padding: 14px; background: #2E7D32; color: #FFF; border: none; border-radius: 6px; font-weight: bold; text-align: center; text-decoration: none; cursor: pointer; margin-top:20px; transition: background 0.2s;}
+  .btn:hover { background: #1F5C24; }
+  
+  .btn-outline { background: transparent; color: #B5502A; border: 1px solid #B5502A; margin-top: 10px; }
+  .btn-outline:hover { background: #fdf5f2; }
+  
+  .warning { background: #F7E4DC; color: #B5502A; padding: 15px; border-radius: 8px; border: 1px solid #B5502A; text-align: center; margin-bottom: 20px; font-weight: bold;}
+  
+  .caretaker-box { background: #F4E9CB; border: 1px solid #d5be86; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+  .caretaker-box h4 { font-family: 'Roboto Slab', serif; color: #8F3D1F; margin-bottom: 5px; margin-top: 0; font-size: 15px;}
+  
+  .receipt-box { background:#f9f9f9; border:1px solid #ddd; padding:20px; border-radius:8px; margin-bottom:20px;}
+  .receipt-row { display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px; color:#555;}
+  .receipt-total { display:flex; justify-content:space-between; margin-top:15px; padding-top:15px; border-top:2px solid #ccc; font-weight:bold; font-size:18px; color:#12211C;}
+  .tx-list { margin-top: 30px; border-top: 1px solid #C4D2C6; padding-top: 20px;}
+  .tx-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #C4D2C6; font-size: 14px; }
+  .tx-item span:last-child { font-weight: 600; color: #2E7D32; }
+  
+  .notice-alert { background: #F7E4DC; color: #B5502A; padding: 15px; border-radius: 8px; font-size: 14px; text-align: center; border: 1px solid #B5502A; margin-top: 20px;}
+</style>
+</head>
+<body>
+<div class="card">
+  {% if tenant %}
+    <h2 style="text-align:center; font-family: 'Roboto Slab', serif; margin-bottom: 20px;">Hello, {{ tenant.full_names.split()[0] }}</h2>
+    
+    {% if lease %}
+      
+      <!-- ========================================== -->
+      <!-- STATE A: CHECKED OUT & REFUNDED            -->
+      <!-- ========================================== -->
+      {% if lease.notice_status == 'Cleared' %}
+        <div style="text-align: center; padding: 10px 0;">
+          <div style="font-size: 45px; margin-bottom: 10px;">👋</div>
+          <h3 style="font-family: 'Roboto Slab', serif; margin-bottom: 15px;">Checkout Complete</h3>
+          <p style="color: #6B7A72; font-size:14px; margin-bottom: 25px; line-height: 1.6;">
+            Your final inspection is complete and your account has been successfully closed. Thank you for your cooperation and for choosing to stay at Muthama Rentals. We wish you the absolute best!
+          </p>
+          
+          <div style="background: #E4F1E4; padding: 20px; border-radius: 8px; border: 1px solid #C4D2C6; margin-bottom: 20px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; color: #2A3B34;">
+              <span>Initial Deposit Paid:</span>
+              <strong>KES {{ lease.deposit_paid }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; color: #B5502A;">
+              <span>Inspection Deductions:</span>
+              <strong>- KES {{ lease.deposit_paid - lease.deposit_returned }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 2px solid #C4D2C6; padding-top: 15px; font-size: 16px;">
+              <span style="font-weight: bold; color: #12211C;">TOTAL REFUNDED:</span>
+              <strong style="color: #2E7D32;">KES {{ lease.deposit_returned }}</strong>
+            </div>
+          </div>
+          {% if (lease.deposit_paid - lease.deposit_returned) > 0 %}
+            <div style="background: #F7E4DC; padding: 15px; border-radius: 8px; border: 1px solid #B5502A; margin-bottom: 25px; text-align: left; font-size:13px;">
+              <strong style="color: #8F3D1F; display:block; margin-bottom:5px;">Reason for Deduction:</strong>
+              <span style="color: #B5502A;">{{ lease.deduction_reason }}</span>
+            </div>
+          {% endif %}
+          
+          <a href="/tenant/logout" class="btn">Log Out Securely</a>
+        </div>
+      
+      <!-- ========================================== -->
+      <!-- STATE B: ACTIVE OR ON NOTICE               -->
+      <!-- ========================================== -->
+      {% else %}
+        
+        <div class="caretaker-box">
+          <h4>Emergency / Caretaker Contact</h4>
+          <div style="font-size: 14px; color: #5a4b27; margin-top: 6px;">
+            <strong>Mr. Muthama</strong> <br> 
+            <a href="tel:+254700000000" style="color: #8F3D1F; font-weight: 600; text-decoration: underline;">Call: 0700 000 000</a>
+          </div>
+        </div>
+
+        <div style="background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; display: flex; justify-content: space-between;">
+          <span style="color: #555; font-weight: 600;">Security Deposit Held:</span>
+          <span style="font-family: 'Roboto Slab', serif; font-weight: 700;">KES {{ lease.deposit_paid }}</span>
+        </div>
+
+        {% if lease.current_balance < 0 and lease.due_date < today %}
+          <div class="warning">
+            ⚠️ DELAYED PAYMENT WARNING<br>
+            <span style="font-size:12px; font-weight:normal;">Your rent was due on {{ lease.due_date.strftime('%d %B') }}. Please clear your balance immediately.</span>
+          </div>
+        {% endif %}
+
+        {% set deposit_owed = lease.unit.standard_rate - lease.deposit_paid %}
+        {% set rent_arrears = lease.current_balance|abs if lease.current_balance < 0 else 0 %}
+        {% set total_due = deposit_owed + rent_arrears %}
+
+        <!-- NEW: SMART DAY-ONE INVOICING -->
+        <div class="receipt-box">
+          <div style="text-align:center; margin-bottom:15px; font-size:12px; font-weight:bold; color:gray; text-transform:uppercase;">Outstanding Balance</div>
+          
+          {% if deposit_owed > 0 %}
+            <div class="receipt-row" style="color:#B5502A;">
+              <span>Security Deposit Owed</span>
+              <span>KES {{ deposit_owed }}</span>
+            </div>
+          {% endif %}
+
+          {% if rent_arrears > 0 %}
+            <div class="receipt-row" style="color:#B5502A;">
+              <span>Rent Arrears (Unpaid Rent)</span>
+              <span>KES {{ rent_arrears }}</span>
+            </div>
+          {% endif %}
+
+          {% if lease.current_balance > 0 %}
+            <div class="receipt-row" style="color:#2E7D32;">
+              <span>Prepaid Credit (Overpayment)</span>
+              <span>- KES {{ lease.current_balance }}</span>
+            </div>
+          {% endif %}
+
+          {% if deposit_owed == 0 and rent_arrears == 0 %}
+            <div class="receipt-row" style="color:gray;">
+              <span>Current Status</span>
+              <span>Fully Paid</span>
+            </div>
+          {% endif %}
+          
+          <div class="receipt-total">
+            <span>Total Amount Due</span>
+            <span style="color:{% if total_due > 0 %}#B5502A{% else %}#2E7D32{% endif %};">KES {{ total_due }}</span>
+          </div>
+        </div>
+        
+        <!-- M-PESA PARTIAL PAYMENT FORM -->
+        <form action="/tenant/pay" method="POST" style="margin-top:20px; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #ddd;" onsubmit="this.querySelector('button').innerText='Sending STK Push...'; document.querySelectorAll('.mpesa-alert').forEach(el => el.style.display='none');">
+          <div style="margin-bottom: 15px;">
+            <label style="font-size:13px; font-weight:600; display:block; margin-bottom:5px;">Amount to Pay Today (KES)</label>
+            <input type="number" name="amount" value="{{ total_due }}" min="1" required style="width:100%; padding:10px; border: 1px solid #C4D2C6; border-radius:6px; font-size:18px; font-weight:bold; color:#12211C; box-sizing:border-box;">
+            <div style="font-size:11px; color:gray; margin-top:6px;">You can edit this box to make a partial payment. Your total outstanding balance is <strong>KES {{ total_due }}</strong>.</div>
+          </div>
+          <button class="btn" type="submit" style="margin-top:0;">Pay via M-Pesa</button>
+        </form>
+
+       <!-- SUCCESS / ERROR ALERTS FOR PAYMENT -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="mpesa-alert" style="padding: 12px; border-radius: 6px; font-size: 13px; margin-top: 15px; text-align: center; border: 1px solid {% if category == 'success' %}#C4D2C6; background: #E4F1E4; color: #2E7D32;{% else %}#B5502A; background: #F7E4DC; color: #B5502A;{% endif %}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="tx-list">
+          <h3 style="font-family:'Roboto Slab', serif; font-size:16px; margin-bottom:10px;">Recent Payments</h3>
+          {% for tx in transactions %}
+            <div class="tx-item">
+              <div>
+                <div style="font-weight:500;">Receipt: {{ tx.mpesa_receipt }}</div>
+                <div style="font-size:12px; color:gray; margin-top:3px;">{{ tx.payment_date.strftime('%Y-%m-%d') }}</div>
+              </div>
+              <span>+ KES {{ tx.amount_paid }}</span>
+            </div>
+          {% else %}
+            <div style="font-size:13px; color:gray; text-align:center; padding:10px 0;">No payments recorded yet.</div>
+          {% endfor %}
+        </div>
+        
+        <div style="margin-top: 40px; border-top: 1px solid #C4D2C6; padding-top: 20px;">
+          <h3 style="font-family:'Roboto Slab', serif; font-size:16px; margin-bottom:10px; color: #12211C;">Moving Out?</h3>
+          {% if lease.notice_status == 'Active' %}
+            <p style="font-size: 13px; color: gray; margin-bottom: 15px; line-height: 1.5;">You are required to provide a 1-month notice before vacating the premises. Once submitted, management will schedule a final inspection to process your KES {{ lease.deposit_paid }} deposit return.</p>
+            <form action="/tenant/give_notice" method="POST" onsubmit="return confirm('Are you sure you want to submit your 1-month notice to vacate? This will notify management immediately.');">
+              <button type="submit" class="btn btn-outline" style="width: 100%;">Submit 1-Month Notice</button>
+            </form>
+          {% elif lease.notice_status == 'Notice Given' %}
+            <div class="notice-alert">
+              <strong>Notice Submitted</strong><br>
+              <span style="font-size: 13px; display:block; margin-top:5px;">Management has been notified. Awaiting final inspection and checkout to process your deposit refund.</span>
+            </div>
+          {% endif %}
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+          <a href="/tenant/logout" style="color: #B5502A; font-size: 13px; font-weight: bold; text-decoration: underline;">Secure Logout</a>
+        </div>
+      {% endif %}
+    
+    <!-- ========================================== -->
+    <!-- STATE C: NO LEASE ASSIGNED                 -->
+    <!-- ========================================== -->
+    {% else %}
+      <div style="text-align: center; padding: 20px 10px;">
+        <p style="color: #B5502A; font-size: 14px; margin-bottom: 20px; line-height:1.5;">
+          No active unit or lease history was found for your profile. If you believe this is an error, please contact management.
+        </p>
+        <a href="/tenant/logout" class="btn btn-outline">Log Out</a>
+      </div>
+    {% endif %}
+    
+  {% else %}
+    <h2 style="text-align:center; font-family: 'Roboto Slab', serif;">Tenant Login</h2>
+    <form action="/tenant" method="POST">
+      <div style="margin-bottom:15px;"><label style="font-size:13px; font-weight:600; display:block; margin-bottom:5px;">National ID</label><input type="text" name="national_id" required style="width:100%; padding:10px; border: 1px solid #C4D2C6; border-radius:6px;"></div>
+      <div style="margin-bottom:20px;"><label style="font-size:13px; font-weight:600; display:block; margin-bottom:5px;">Phone Number</label><input type="text" name="phone_number" required style="width:100%; padding:10px; border: 1px solid #C4D2C6; border-radius:6px;"></div>
+      <button type="submit" class="btn">Login</button>
+    </form>
+  {% endif %}
+</div>
+
+<script>
+  let currentTxCount = null;
+  function checkForNewPayments() {
+      fetch('/api/tx_count')
+          .then(res => res.json())
+          .then(data => {
+              if (currentTxCount === null) {
+                  currentTxCount = data.count; // Set the baseline when page loads
+              } else if (data.count > currentTxCount) {
+                  // A new payment just hit the database! Auto-refresh safely.
+                  window.location.reload();
+              }
+          });
+  }
+  // Check the server every 5 seconds silently in the background
+  setInterval(checkForNewPayments, 5000);
+</script>
+
+</body>
+</html>

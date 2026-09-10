@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muthama Rentals — Owner Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#12211C; --ink-soft:#2A3B34; --paper:#F7F4EE; --paper-raised:#FFFFFF; --sage:#DCE5DE; --sage-line:#C4D2C6; --money-green:#2E7D32; --money-green-deep:#1F5C24; --brick:#B5502A; --brick-deep:#8F3D1F; --gold:#B4881A; --gold-bg:#F4E9CB; --muted:#6B7A72; --radius-sm:3px; --radius-md:6px; --shadow:0 1px 2px rgba(18,33,28,0.06), 0 4px 14px rgba(18,33,28,0.05); --serif:'Roboto Slab', Georgia, serif; --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:var(--sans); background:var(--paper); color:var(--ink); min-height:100vh; }
+  a{color:inherit; text-decoration:none;} button{font-family:inherit; cursor:pointer;} input, select{font-family:inherit;}
+  
+  .shell{ display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  .sidebar{ background:var(--ink); color:var(--paper); padding:26px 18px 22px; display:flex; flex-direction:column; gap:28px; position:sticky; top:0; height:100vh; }
+  .brand{ display:flex; align-items:center; gap:11px; padding:0 6px; }
+  .brand-mark{ width:36px; height:36px; border-radius:var(--radius-sm); background:var(--money-green); display:flex; align-items:center; justify-content:center; font-family:var(--serif); font-weight:700; font-size:16px; color:var(--paper); flex-shrink:0; }
+  
+  .nav{display:flex; flex-direction:column; gap:2px;}
+  .nav-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:#7C9188; padding:0 10px; margin-bottom:6px; margin-top:10px;}
+  .nav-item{ display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:var(--radius-sm); color:#C9D6CE; font-size:14px; font-weight:500; border:none; background:transparent; width:100%; text-align:left; transition:background .15s ease; }
+  .nav-item.active{background:var(--money-green); color:#fff;}
+  .nav-badge{ margin-left:auto; background:rgba(255,255,255,0.12); font-size:10.5px; padding:1px 7px; border-radius:20px; font-weight:600; }
+  
+  .main{ display:flex; flex-direction:column; min-width:0; }
+  .topbar{ background:var(--paper-raised); border-bottom:1px solid var(--sage-line); padding:18px 32px; display:flex; justify-content:space-between; }
+  .topbar h1{ font-family:var(--serif); font-size:22px; }
+  .content{padding:26px 32px 60px; flex:1;}
+  
+  .summary-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:24px; }
+  .stat-card{ background:var(--paper-raised); border:1px solid var(--sage-line); border-radius:var(--radius-md); padding:16px; box-shadow:var(--shadow); }
+  .stat-card .label{ font-size:11.5px; font-weight:600; text-transform:uppercase; color:var(--muted); }
+  .stat-card .value{ font-family:var(--serif); font-size:20px; font-weight:700; margin-top:6px; }
+  
+  .btn{ display:inline-flex; align-items:center; padding:9px 16px; border-radius:var(--radius-sm); font-size:13.5px; font-weight:600; border:1px solid transparent; }
+  .btn-primary{background:var(--money-green); color:#fff;}
+  .btn-sm{padding:4px 10px; font-size:12px; background:#e0e0e0; border:1px solid #ccc; border-radius:20px;}
+  .btn-holiday{background:#F4E9CB; color:#8F3D1F; border:1px solid #d5be86;}
+  .panel{display:none;} .panel.active{display:block;}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .card{ background:var(--paper-raised); border:1px solid var(--sage-line); border-radius:var(--radius-md); box-shadow:var(--shadow); padding:22px;}
+  
+  .field{margin-bottom:13px;}
+  .field label{display:block; font-size:12.5px; font-weight:600; margin-bottom:5px;}
+  .field input, .field select{ width:100%; padding:9px 11px; border:1px solid var(--sage-line); border-radius:var(--radius-sm); font-size:14px; }
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .checkbox-row{display:flex; align-items:center; gap:8px; background:#F4E9CB; padding:10px; border-radius:6px; border:1px solid #d5be86; margin-bottom:13px;}
+  .checkbox-row input{width:auto;}
+  .checkbox-row label{margin:0; color:#8F3D1F; font-size:13px;}
+  
+  table.ledger{width:100%; border-collapse:collapse; font-size:13.5px; min-width:640px;}
+  table.ledger thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; color:var(--muted); padding:0 14px 10px; border-bottom:2px solid var(--ink); }
+  table.ledger td{padding:13px 14px; border-bottom:1px solid var(--sage-line);}
+  .badge{ display:inline-flex; align-items:center; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+  .badge-brick{background:#F7E4DC; color:var(--brick-deep);}
+  .amt-brick{color:var(--brick-deep); font-weight:700;}
+  
+  .unit-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; margin-top:20px;}
+  .unit-card{ background:var(--paper-raised); border:1px solid var(--sage-line); border-radius:var(--radius-md); padding:16px; box-shadow:var(--shadow);}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">MR</div>
+      <div class="brand-text"><div class="name" style="font-family:var(--serif); font-weight:600; font-size:15px;">Muthama Rentals</div></div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-tab="dashboard">Dashboard</button>
+      <button class="nav-item" data-tab="units">Units</button>
+      <button class="nav-item" data-tab="tenants">Tenants</button>
+      <button class="nav-item" data-tab="notices">Notices & Checkout</button>
+      <button class="nav-item" data-tab="repairs">Repairs & Maint.</button>
+      <button class="nav-item" data-tab="reports">Reports</button>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+    </header>
+    <main class="content">
+      
+      <!-- OWNER SUCCESS / ERROR ALERTS -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div style="padding: 14px; border-radius: 6px; font-size: 14px; font-weight: 500; margin-bottom: 20px; border: 1px solid {% if category == 'success' %}#C4D2C6; background: #E4F1E4; color: #2E7D32;{% else %}#B5502A; background: #F7E4DC; color: #B5502A;{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- DASHBOARD PANEL -->
+      <section class="panel active" id="panel-dashboard">
+        <div class="summary-grid">
+          <div class="stat-card"><div class="label">Total Rent Paid</div><div class="value" style="color:var(--money-green-deep);">KES {{ summary.rent_collected }}</div></div>
+          <div class="stat-card"><div class="label">Arrears</div><div class="value amt-brick">KES {{ summary.arrears }}</div></div>
+          <div class="stat-card"><div class="label">Deposits Held</div><div class="value" style="color:var(--gold);">KES {{ summary.deposits_held }}</div></div>
+          <div class="stat-card"><div class="label">Total Repairs</div><div class="value amt-brick">KES {{ summary.repairs_cost }}</div></div>
+          <div class="stat-card"><div class="label">Occupancy</div><div class="value">{{ summary.occupied_units }} / {{ summary.total_units }}</div></div>
+        </div>
+        <div class="grid-2">
+          <!-- Add Unit Form -->
+          <div class="card">
+            <h3 style="margin-bottom:15px; font-family:var(--serif);">Add rental unit</h3>
+            <form action="/add_unit" method="POST">
+              <div class="field"><label>Unit type</label><select name="unit_type"><option>Single Room</option><option>Bedsitter</option><option>One Bedroom</option></select></div>
+              <div class="field-row">
+                <div class="field"><label>Door Number</label><input type="text" name="door_number" required></div>
+                <div class="field"><label>Base Monthly Rate (KES)</label><input type="number" name="standard_rate" required></div>
+              </div>
+              <button class="btn btn-primary" type="submit" style="width:100%; justify-content:center;">Save unit</button>
+            </form>
+          </div>
+          <!-- Add Tenant Form -->
+          <div class="card">
+            <h3 style="margin-bottom:15px; font-family:var(--serif);">Onboard tenant & assign unit</h3>
+            <form action="/add_tenant" method="POST">
+              <div class="field-row">
+                <div class="field"><label>Full names</label><input type="text" name="full_names" required></div>
+                <div class="field"><label>National ID</label><input type="text" name="national_id" required></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><label>Phone number</label><input type="text" name="phone_number" required></div>
+                <div class="field"><label>Emergency Contact</label><input type="text" name="emergency_contact" required></div>
+              </div>
+              <div class="field"><label>Emergency Contact Name</label><input type="text" name="emergency_contact_name" required></div>
+              
+              <div class="field">
+                <label>Assign vacant unit</label>
+                <select name="unit_id" id="unitSelect" required>
+                  <option value="" disabled selected>Select a door...</option>
+                  {% for unit in units %}
+                    {% if unit.status == 'Vacant' %}
+                      <option value="{{ unit.id }}" data-rate="{{ unit.standard_rate }}">{{ unit.unit_type }} - Door {{ unit.door_number }} (KES {{ unit.standard_rate }})</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              </div>
+              
+              <div class="field">
+                <label>Next Due Date (Auto-calculated to Next Month)</label>
+                <input type="date" name="due_date" value="{{ default_due.strftime('%Y-%m-%d') }}" required>
+              </div>
+              
+              <button class="btn btn-primary" type="submit" style="width:100%; justify-content:center;">Register tenant</button>
+            </form>
+          </div>
+        </div>
+        
+        <h2 style="margin-top:30px; margin-bottom:15px; font-family:var(--serif);">Active tenancies & financial ledger</h2>
+        <div class="card" style="padding:0; overflow-x:auto;">
+          <table class="ledger">
+            <thead>
+              <tr><th>Tenant</th><th>Unit</th><th>Rate Mode</th><th>Next Due</th><th>Balance</th></tr>
+            </thead>
+            <tbody>
+              {% for lease in leases %}
+              {% if lease.notice_status != 'Cleared' %}
+              <tr>
+                <td><strong>{{ lease.tenant.full_names }}</strong><br><span style="font-size:12px; color:gray;">{{ lease.tenant.phone_number }}</span></td>
+                <td>Door {{ lease.unit.door_number }}</td>
+                
+                <td>
+                  KES {{ lease.agreed_rate }}
+                  {% if lease.agreed_rate < lease.unit.standard_rate %}
+                    <br><span class="badge" style="background:#F4E9CB; color:#8F3D1F; margin-top:4px;">Holiday Rate</span>
+                  {% endif %}
+                  <form action="/toggle_holiday/{{ lease.id }}" method="POST" style="margin-top:5px;">
+                    <button type="submit" class="btn btn-sm {% if lease.agreed_rate == lease.unit.standard_rate %}btn-holiday{% endif %}">
+                      {% if lease.agreed_rate == lease.unit.standard_rate %}Switch to Holiday Mode{% else %}Restore Full Rent{% endif %}
+                    </button>
+                  </form>
+                </td>
+                
+                <td>
+                  {{ lease.due_date.strftime('%Y-%m-%d') }}
+                  {% if lease.current_balance < 0 and lease.due_date < today %}
+                    <br><span class="badge badge-brick" style="margin-top:4px;">OVERDUE WARNING</span>
+                  {% endif %}
+                </td>
+                
+                <td style="font-weight:600; color:{% if lease.current_balance < 0 %}var(--brick-deep){% elif lease.current_balance > 0 %}#2E7D32{% else %}gray{% endif %};">
+                  KES {{ lease.current_balance }}
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- RECENT PAYMENTS RECEIVED TABLE -->
+        <h2 style="margin-top:30px; margin-bottom:15px; font-family:var(--serif);">Recent Payments Received</h2>
+        <div class="card" style="padding:0; overflow-x:auto;">
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Tenant Name & Door</th>
+                <th>M-Pesa Code</th>
+                <th>Amount Received</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for tx in transactions|sort(attribute='payment_date', reverse=True) %}
+              <tr>
+                <td style="color:gray; font-size: 12.5px;">{{ tx.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                  <strong>{{ tx.lease.tenant.full_names }}</strong><br>
+                  <span style="font-size:11.5px; color:gray;">Door {{ tx.lease.unit.door_number }}</span>
+                </td>
+                <td style="font-family: monospace; font-weight: 700; color: var(--money-green-deep);">{{ tx.mpesa_receipt }}</td>
+                <td style="color:var(--money-green); font-weight:700;">KES {{ tx.amount_paid }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" style="text-align:center; padding:15px; color:gray;">No payments recorded yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      
+      <!-- UNITS PANEL (RESTORED) -->
+      <section class="panel" id="panel-units">
+        <h2>All Units</h2>
+        <div class="unit-grid">
+          {% for unit in units %}
+          <div class="unit-card">
+            <div style="font-family:var(--serif); font-size:16px; font-weight:600;">{{ unit.unit_type }}</div>
+            <div style="font-size:12px; color:gray;">Door {{ unit.door_number }}</div>
+            <div style="font-size:20px; font-weight:700; margin-top:12px; font-family:var(--serif);">KES {{ unit.standard_rate }}</div>
+            <div style="margin-top:10px;">
+              {% if unit.status == 'Occupied' %}<span class="badge" style="background:#E4F1E4; color:#1F5C24;">Occupied</span>
+              {% else %}<span class="badge" style="background:#E7EBE8; color:#6B7A72;">Vacant</span>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      
+      <!-- TENANTS PANEL (RESTORED) -->
+      <section class="panel" id="panel-tenants">
+        <h2>Tenant Directory</h2>
+        <div class="card" style="padding:0; overflow-x:auto; margin-top:20px;">
+          <table class="ledger">
+            <thead><tr><th>Name</th><th>ID Number</th><th>Phone</th><th>Emergency Contact</th><th>Door Number</th></tr></thead>
+            <tbody>
+              {% for lease in leases %}
+              {% if lease.notice_status != 'Cleared' %}
+              <tr>
+                <td><strong>{{ lease.tenant.full_names }}</strong></td>
+                <td>{{ lease.tenant.national_id }}</td>
+                <td>{{ lease.tenant.phone_number }}</td>
+                <td>{{ lease.tenant.emergency_contact_name }} ({{ lease.tenant.emergency_contact }})</td>
+                <td>Door {{ lease.unit.door_number }}</td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      
+      <!-- NOTICES PANEL -->
+      <section class="panel" id="panel-notices">
+        <h2>Active Notices</h2>
+        <div class="card" style="padding:0; overflow-x:auto; margin-top:20px;">
+          <table class="ledger">
+            <thead><tr><th>Tenant</th><th>Unit</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              {% for lease in leases %}
+              {% if lease.notice_status != 'Cleared' %}
+              <tr>
+                <td><strong>{{ lease.tenant.full_names }}</strong></td>
+                <td>Door {{ lease.unit.door_number }}</td>
+                <td>{{ lease.notice_status }}</td>
+                <td>
+                  {% if lease.notice_status == 'Notice Given' %}
+                  <form action="/release_tenant/{{ lease.id }}" method="POST" style="background:#f4f6f9; padding:10px; border-radius:6px; border:1px solid #C4D2C6;">
+                    <div style="font-size:12px; font-weight:600;">House Condition:</div>
+                    <select name="condition" required onchange="this.parentElement.querySelector('.deduct-group').style.display = this.value === 'Needs Repairs' ? 'block' : 'none'" style="margin-bottom:5px;">
+                      <option value="Good">Good (Full Refund)</option>
+                      <option value="Needs Repairs">Needs Repairs (Deduct)</option>
+                    </select>
+                    
+                    <!-- NEW: Appears only when deductions are selected -->
+                    <div class="deduct-group" style="display:none; margin-bottom:5px;">
+                      <input type="number" name="deduction_amount" placeholder="Deduct Amount (KES)" min="0" max="{{ lease.deposit_paid }}" style="margin-bottom:5px;">
+                      <input type="text" name="deduction_reason" placeholder="Reason (e.g. Broken window sink)">
+                    </div>
+                    <button class="btn btn-primary" type="submit" style="margin-top: 5px;">Confirm Checkout</button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- CHECKOUT HISTORY LOG -->
+        <h2 style="margin-top:40px;">Checkout History</h2>
+        <div class="card" style="padding:0; overflow-x:auto; margin-top:20px;">
+          <table class="ledger">
+            <thead><tr><th>Past Tenant</th><th>Door</th><th>Checkout Date</th><th>Refund Status</th><th>Deduction Reason</th></tr></thead>
+            <tbody>
+              {% for lease in cleared_leases %}
+              <tr>
+                <td><strong>{{ lease.tenant.full_names }}</strong></td>
+                <td>Door {{ lease.unit.door_number }}</td>
+                <td>{{ lease.end_date.strftime('%Y-%m-%d') if lease.end_date else 'N/A' }}</td>
+                <td style="color:#2E7D32; font-weight:600;">Refunded KES {{ lease.deposit_returned }}</td>
+                <td style="color:gray; font-size:12px;">{{ lease.deduction_reason }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" style="text-align:center; padding:15px; color:gray;">No past checkouts recorded yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      
+      <!-- REPAIRS PANEL -->
+      <section class="panel" id="panel-repairs">
+        <h2>Repairs & Maintenance</h2>
+        <div class="grid-2" style="margin-top:20px;">
+          <div class="card" style="padding:0; overflow-x:auto;">
+            <table class="ledger">
+              <thead><tr><th>Date</th><th>Door</th><th>Desc</th><th>Cost</th></tr></thead>
+              <tbody>
+                {% for repair in repairs %}
+                <tr><td>{{ repair.date_filed.strftime('%Y-%m-%d') }}</td><td>{{ repair.unit.door_number }}</td><td>{{ repair.description }}</td><td class="amt-brick">KES {{ repair.cost }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h3 style="margin-bottom:15px; font-family:var(--serif);">Record a Repair</h3>
+            <form action="/add_repair" method="POST">
+              <div class="field"><label>Select Unit Door</label>
+                <select name="unit_id" required>{% for unit in units %}<option value="{{ unit.id }}">Door {{ unit.door_number }}</option>{% endfor %}</select>
+              </div>
+              <div class="field"><label>Cost (KES)</label><input type="number" name="cost" required></div>
+              <div class="field"><label>Description</label><input type="text" name="description" required></div>
+              <button class="btn btn-primary" type="submit" style="width:100%; justify-content:center;">Save Repair</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      
+      <!-- REPORTS PANEL -->
+      <section class="panel" id="panel-reports">
+        <h2>Data Backup</h2>
+        <div class="card" style="margin-top:20px;"><a href="/export/system_backup" class="btn btn-primary">Download Master Backup (.xlsx)</a></div>
+      </section>
+      
+    </main>
+  </div>
+</div>
+
+<script>
+  // Tab Switching Logic
+  const navItems = document.querySelectorAll('.nav-item');
+  const panels = document.querySelectorAll('.panel');
+  const pageTitle = document.getElementById('pageTitle');
+  const savedTab = localStorage.getItem('activeTab') || 'dashboard';
+  
+  function switchTab(tabId) {
+    navItems.forEach(b => b.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    const activeBtn = document.querySelector(`[data-tab="${tabId}"]`);
+    const activePanel = document.getElementById('panel-' + tabId);
+    
+    if (activeBtn && activePanel) {
+      activeBtn.classList.add('active');
+      activePanel.classList.add('active');
+      pageTitle.textContent = activeBtn.firstChild.textContent.trim();
+      localStorage.setItem('activeTab', tabId);
+    }
+  }
+  
+  switchTab(savedTab);
+  navItems.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+// --- AUTO-REFRESH WHEN PAYMENTS ARRIVE ---
+  let currentTxCount = null;
+  function checkForNewPayments() {
+      fetch('/api/tx_count')
+          .then(res => res.json())
+          .then(data => {
+              if (currentTxCount === null) {
+                  currentTxCount = data.count; 
+              } else if (data.count > currentTxCount) {
+                  window.location.reload();
+              }
+          });
+  }
+  setInterval(checkForNewPayments, 5000);
+</script>
+</body>
+</html>

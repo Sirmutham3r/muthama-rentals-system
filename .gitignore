@@ -1,0 +1,13 @@
+# Environments
+venv/
+env/
+
+# Secrets
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Excel Backups
+*.xlsx
