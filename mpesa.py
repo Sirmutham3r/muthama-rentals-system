@@ -55,7 +55,7 @@ def trigger_stk_push(phone_number, amount, account_reference):
         "PartyB": BUSINESS_SHORT_CODE,
         "PhoneNumber": phone_number,
         # IMPORTANT: Replace YOUR_NGROK_URL with your actual Ngrok HTTPS link 
-        "CallBackURL": "https://uncouth-alabaster-luckily.ngrok-free.dev/mpesa/callback", 
+        "CallBackURL": "https://muthama-rentals-system-72dqwbwe8-sirmuthama.vercel.app/mpesa/callback", 
         "AccountReference": account_reference,
         "TransactionDesc": "Rent Payment"
     }
