@@ -111,6 +111,57 @@
       
       /* 7. Touch-friendly inputs */
       .field input, .field select, .btn { padding: 14px 16px !important; font-size: 16px !important; }
+
+      /* 8. Tables → stacked cards. No more sideways scrolling or squeezed columns. */
+      .table-card { padding: 0 !important; background: transparent !important; border: none !important; box-shadow: none !important; }
+      table.ledger { min-width: 0 !important; width: 100% !important; }
+      table.ledger thead { display: none !important; }
+      table.ledger, table.ledger tbody, table.ledger tr, table.ledger td { display: block !important; width: 100% !important; }
+      table.ledger tr {
+          background: var(--paper-raised) !important;
+          border: 1px solid var(--sage-line) !important;
+          border-radius: var(--radius-md) !important;
+          box-shadow: var(--shadow) !important;
+          margin-bottom: 12px !important;
+          padding: 12px 14px !important;
+      }
+      table.ledger td {
+          border-bottom: 1px solid #EFEFE9 !important;
+          padding: 10px 0 !important;
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: flex-start !important;
+          gap: 16px !important;
+          text-align: right !important;
+      }
+      table.ledger td:last-child { border-bottom: none !important; }
+      /* Inject the column name as a label in front of the value */
+      table.ledger td[data-label]::before {
+          content: attr(data-label);
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: var(--muted);
+          text-align: left;
+          flex-shrink: 0;
+          padding-top: 2px;
+      }
+      /* Cells with forms/badges inside read better left-aligned under the label */
+      table.ledger td:has(form),
+      table.ledger td:has(.badge) {
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          text-align: left !important;
+          gap: 6px !important;
+      }
+      table.ledger td:has(form) form,
+      table.ledger td:has(.badge) { width: 100%; }
+      /* Empty-state row (colspan) shouldn't get the label treatment */
+      table.ledger td[colspan] {
+          text-align: center !important;
+          display: block !important;
+      }
+      table.ledger td[colspan]::before { content: none; }
   }
   
   /* Extremely small screens (force single column stats) */
@@ -211,7 +262,7 @@
         </div>
         
         <h2 style="margin-top:30px; margin-bottom:15px; font-family:var(--serif);">Active tenancies & financial ledger</h2>
-        <div class="card" style="padding:0; overflow-x:auto; -webkit-overflow-scrolling: touch;">
+        <div class="card table-card">
           <table class="ledger">
             <thead>
               <tr><th>Tenant</th><th>Unit</th><th>Rate Mode</th><th>Next Due</th><th>Balance</th></tr>
@@ -220,10 +271,10 @@
               {% for lease in leases %}
               {% if lease.notice_status != 'Cleared' %}
               <tr>
-                <td><strong>{{ lease.tenant.full_names }}</strong><br><span style="font-size:12px; color:gray;">{{ lease.tenant.phone_number }}</span></td>
-                <td>Door {{ lease.unit.door_number }}</td>
+                <td data-label="Tenant"><strong>{{ lease.tenant.full_names }}</strong><br><span style="font-size:12px; color:gray;">{{ lease.tenant.phone_number }}</span></td>
+                <td data-label="Unit">Door {{ lease.unit.door_number }}</td>
                 
-                <td>
+                <td data-label="Rate Mode">
                   KES {{ lease.agreed_rate }}
                   {% if lease.agreed_rate < lease.unit.standard_rate %}
                     <br><span class="badge" style="background:#F4E9CB; color:#8F3D1F; margin-top:4px;">Holiday Rate</span>
@@ -235,14 +286,14 @@
                   </form>
                 </td>
                 
-                <td>
+                <td data-label="Next Due">
                   {{ lease.due_date.strftime('%Y-%m-%d') }}
                   {% if lease.current_balance < 0 and lease.due_date < today %}
                     <br><span class="badge badge-brick" style="margin-top:4px;">OVERDUE WARNING</span>
                   {% endif %}
                 </td>
                 
-                <td style="font-weight:600; color:{% if lease.current_balance < 0 %}var(--brick-deep){% elif lease.current_balance > 0 %}#2E7D32{% else %}gray{% endif %};">
+                <td data-label="Balance" style="font-weight:600; color:{% if lease.current_balance < 0 %}var(--brick-deep){% elif lease.current_balance > 0 %}#2E7D32{% else %}gray{% endif %};">
                   KES {{ lease.current_balance }}
                 </td>
               </tr>
@@ -254,7 +305,7 @@
 
         <!-- RECENT PAYMENTS RECEIVED TABLE -->
         <h2 style="margin-top:30px; margin-bottom:15px; font-family:var(--serif);">Recent Payments Received</h2>
-        <div class="card" style="padding:0; overflow-x:auto; -webkit-overflow-scrolling: touch;">
+        <div class="card table-card">
           <table class="ledger">
             <thead>
               <tr>
@@ -267,13 +318,13 @@
             <tbody>
               {% for tx in transactions|sort(attribute='payment_date', reverse=True) %}
               <tr>
-                <td style="color:gray; font-size: 12.5px;">{{ tx.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td>
+                <td data-label="Date & Time" style="color:gray; font-size: 12.5px;">{{ tx.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td data-label="Tenant & Door">
                   <strong>{{ tx.lease.tenant.full_names }}</strong><br>
                   <span style="font-size:11.5px; color:gray;">Door {{ tx.lease.unit.door_number }}</span>
                 </td>
-                <td style="font-family: monospace; font-weight: 700; color: var(--money-green-deep);">{{ tx.mpesa_receipt }}</td>
-                <td style="color:var(--money-green); font-weight:700;">KES {{ tx.amount_paid }}</td>
+                <td data-label="M-Pesa Code" style="font-family: monospace; font-weight: 700; color: var(--money-green-deep);">{{ tx.mpesa_receipt }}</td>
+                <td data-label="Amount" style="color:var(--money-green); font-weight:700;">KES {{ tx.amount_paid }}</td>
               </tr>
               {% else %}
               <tr>
@@ -306,18 +357,18 @@
       <!-- TENANTS PANEL -->
       <section class="panel" id="panel-tenants">
         <h2>Tenant Directory</h2>
-        <div class="card" style="padding:0; overflow-x:auto; -webkit-overflow-scrolling: touch; margin-top:20px;">
+        <div class="card table-card" style="margin-top:20px;">
           <table class="ledger">
             <thead><tr><th>Name</th><th>ID Number</th><th>Phone</th><th>Emergency Contact</th><th>Door Number</th></tr></thead>
             <tbody>
               {% for lease in leases %}
               {% if lease.notice_status != 'Cleared' %}
               <tr>
-                <td><strong>{{ lease.tenant.full_names }}</strong></td>
-                <td>{{ lease.tenant.national_id }}</td>
-                <td>{{ lease.tenant.phone_number }}</td>
-                <td>{{ lease.tenant.emergency_contact_name }} ({{ lease.tenant.emergency_contact }})</td>
-                <td>Door {{ lease.unit.door_number }}</td>
+                <td data-label="Name"><strong>{{ lease.tenant.full_names }}</strong></td>
+                <td data-label="ID Number">{{ lease.tenant.national_id }}</td>
+                <td data-label="Phone">{{ lease.tenant.phone_number }}</td>
+                <td data-label="Emergency Contact">{{ lease.tenant.emergency_contact_name }} ({{ lease.tenant.emergency_contact }})</td>
+                <td data-label="Door">Door {{ lease.unit.door_number }}</td>
               </tr>
               {% endif %}
               {% endfor %}
@@ -329,17 +380,17 @@
       <!-- NOTICES PANEL -->
       <section class="panel" id="panel-notices">
         <h2>Active Notices</h2>
-        <div class="card" style="padding:0; overflow-x:auto; -webkit-overflow-scrolling: touch; margin-top:20px;">
+        <div class="card table-card" style="margin-top:20px;">
           <table class="ledger">
             <thead><tr><th>Tenant</th><th>Unit</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>
               {% for lease in leases %}
               {% if lease.notice_status != 'Cleared' %}
               <tr>
-                <td><strong>{{ lease.tenant.full_names }}</strong></td>
-                <td>Door {{ lease.unit.door_number }}</td>
-                <td>{{ lease.notice_status }}</td>
-                <td>
+                <td data-label="Tenant"><strong>{{ lease.tenant.full_names }}</strong></td>
+                <td data-label="Unit">Door {{ lease.unit.door_number }}</td>
+                <td data-label="Status">{{ lease.notice_status }}</td>
+                <td data-label="Action">
                   {% if lease.notice_status == 'Notice Given' %}
                   <form action="/release_tenant/{{ lease.id }}" method="POST" style="background:#f4f6f9; padding:10px; border-radius:6px; border:1px solid #C4D2C6;">
                     <div style="font-size:12px; font-weight:600;">House Condition:</div>
@@ -364,17 +415,17 @@
         
         <!-- CHECKOUT HISTORY LOG -->
         <h2 style="margin-top:40px;">Checkout History</h2>
-        <div class="card" style="padding:0; overflow-x:auto; -webkit-overflow-scrolling: touch; margin-top:20px;">
+        <div class="card table-card" style="margin-top:20px;">
           <table class="ledger">
             <thead><tr><th>Past Tenant</th><th>Door</th><th>Checkout Date</th><th>Refund Status</th><th>Deduction Reason</th></tr></thead>
             <tbody>
               {% for lease in cleared_leases %}
               <tr>
-                <td><strong>{{ lease.tenant.full_names }}</strong></td>
-                <td>Door {{ lease.unit.door_number }}</td>
-                <td>{{ lease.end_date.strftime('%Y-%m-%d') if lease.end_date else 'N/A' }}</td>
-                <td style="color:#2E7D32; font-weight:600;">Refunded KES {{ lease.deposit_returned }}</td>
-                <td style="color:gray; font-size:12px;">{{ lease.deduction_reason }}</td>
+                <td data-label="Past Tenant"><strong>{{ lease.tenant.full_names }}</strong></td>
+                <td data-label="Door">Door {{ lease.unit.door_number }}</td>
+                <td data-label="Checkout Date">{{ lease.end_date.strftime('%Y-%m-%d') if lease.end_date else 'N/A' }}</td>
+                <td data-label="Refund Status" style="color:#2E7D32; font-weight:600;">Refunded KES {{ lease.deposit_returned }}</td>
+                <td data-label="Deduction Reason" style="color:gray; font-size:12px;">{{ lease.deduction_reason }}</td>
               </tr>
               {% else %}
               <tr><td colspan="5" style="text-align:center; padding:15px; color:gray;">No past checkouts recorded yet.</td></tr>
@@ -388,12 +439,12 @@
       <section class="panel" id="panel-repairs">
         <h2>Repairs & Maintenance</h2>
         <div class="grid-2" style="margin-top:20px;">
-          <div class="card" style="padding:0; overflow-x:auto; -webkit-overflow-scrolling: touch;">
+          <div class="card table-card">
             <table class="ledger">
               <thead><tr><th>Date</th><th>Door</th><th>Desc</th><th>Cost</th></tr></thead>
               <tbody>
                 {% for repair in repairs %}
-                <tr><td>{{ repair.date_filed.strftime('%Y-%m-%d') }}</td><td>{{ repair.unit.door_number }}</td><td>{{ repair.description }}</td><td class="amt-brick">KES {{ repair.cost }}</td></tr>
+                <tr><td data-label="Date">{{ repair.date_filed.strftime('%Y-%m-%d') }}</td><td data-label="Door">{{ repair.unit.door_number }}</td><td data-label="Description">{{ repair.description }}</td><td data-label="Cost" class="amt-brick">KES {{ repair.cost }}</td></tr>
                 {% endfor %}
               </tbody>
             </table>
