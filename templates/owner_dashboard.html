@@ -108,9 +108,19 @@
       .summary-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
       .stat-card { padding: 12px !important; }
       .stat-card .value { font-size: 18px !important; }
+
+      /* Long unbreakable numbers/values must never force the grid wider than the viewport */
+      .stat-card .value { overflow-wrap: anywhere !important; word-break: break-word !important; }
       
-      /* 7. Touch-friendly inputs */
-      .field input, .field select, .btn { padding: 14px 16px !important; font-size: 16px !important; }
+      /* 7. Touch-friendly inputs. Scoped to inputs/selects and the primary CTA only —
+         previously this also matched .btn-sm (the tiny in-table "Holiday Mode" /
+         "Restore Full Rent" toggles), and because it carried !important it always
+         beat .btn-sm's own rule regardless of source order. That blew those buttons
+         up to full touch-target size inside table cells, forcing rows (and the whole
+         page) to overflow horizontally — the actual mobile responsiveness bug. */
+      .field input, .field select { padding: 14px 16px !important; font-size: 16px !important; }
+      .btn-primary { padding: 14px 16px !important; font-size: 16px !important; }
+      .btn-sm { padding: 10px 14px !important; font-size: 13px !important; }
 
       /* 8. Tables → stacked cards. No more sideways scrolling or squeezed columns. */
       .table-card { padding: 0 !important; background: transparent !important; border: none !important; box-shadow: none !important; }
