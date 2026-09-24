@@ -11,6 +11,7 @@
   
   .btn { display: block; width: 100%; padding: 14px; background: #2E7D32; color: #FFF; border: none; border-radius: 6px; font-weight: bold; text-align: center; text-decoration: none; cursor: pointer; margin-top:20px; transition: background 0.2s;}
   .btn:hover { background: #1F5C24; }
+  .btn:disabled { background: #9db89f; cursor: not-allowed; }
   
   .btn-outline { background: transparent; color: #B5502A; border: 1px solid #B5502A; margin-top: 10px; }
   .btn-outline:hover { background: #fdf5f2; }
@@ -28,6 +29,14 @@
   .tx-item span:last-child { font-weight: 600; color: #2E7D32; }
   
   .notice-alert { background: #F7E4DC; color: #B5502A; padding: 15px; border-radius: 8px; font-size: 14px; text-align: center; border: 1px solid #B5502A; margin-top: 20px;}
+
+  /* PAYMENT STATUS POLLING INDICATOR */
+  #paymentStatus { display: none; padding: 12px; border-radius: 6px; font-size: 13px; margin-top: 15px; text-align: center; border: 1px solid #C4D2C6; background: #F4F4F4; color: #444; }
+  #paymentStatus.pending { border-color: #d5be86; background: #F4E9CB; color: #8F3D1F; }
+  #paymentStatus.success { border-color: #C4D2C6; background: #E4F1E4; color: #2E7D32; }
+  #paymentStatus.failed { border-color: #B5502A; background: #F7E4DC; color: #B5502A; }
+  #paymentStatus .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #d5be86; border-top-color: transparent; border-radius: 50%; margin-right: 8px; vertical-align: middle; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ==============================================================
      MOBILE RESPONSIVE OVERRIDES
@@ -151,7 +160,7 @@
         </div>
         
         <!-- M-PESA PARTIAL PAYMENT FORM -->
-        <form action="/tenant/pay" method="POST" style="margin-top:20px; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #ddd;" onsubmit="this.querySelector('button').innerText='Sending STK Push...'; document.querySelectorAll('.mpesa-alert').forEach(el => el.style.display='none');">
+        <form id="payForm" action="/tenant/pay" method="POST" style="margin-top:20px; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #ddd;" onsubmit="this.querySelector('button').innerText='Sending STK Push...'; this.querySelector('button').disabled=true; document.querySelectorAll('.mpesa-alert').forEach(el => el.style.display='none');">
           <div style="margin-bottom: 15px;">
             <label style="font-size:13px; font-weight:600; display:block; margin-bottom:5px;">Amount to Pay Today (KES)</label>
             <input type="number" name="amount" value="{{ total_due }}" min="1" required style="width:100%; padding:10px; border: 1px solid #C4D2C6; border-radius:6px; font-size:18px; font-weight:bold; color:#12211C; box-sizing:border-box;">
@@ -170,6 +179,9 @@
             {% endfor %}
           {% endif %}
         {% endwith %}
+
+        <!-- LIVE PAYMENT STATUS (populated by JS polling /api/check_payment) -->
+        <div id="paymentStatus"></div>
 
         <div class="tx-list">
           <h3 style="font-family:'Roboto Slab', serif; font-size:16px; margin-bottom:10px;">Recent Payments</h3>
@@ -244,6 +256,73 @@
   }
   // Check the server every 5 seconds silently in the background
   setInterval(checkForNewPayments, 5000);
+
+  // ==================================================================
+  // STK PUSH PAYMENT STATUS POLLING
+  // Falls back to actively asking Safaricom for the result, in case the
+  // /mpesa/callback webhook is delayed or never arrives (common on sandbox).
+  // ==================================================================
+  const paymentStatusEl = document.getElementById('paymentStatus');
+  let pollAttempts = 0;
+  const MAX_POLL_ATTEMPTS = 20; // ~20 x 3s = 60 seconds
+  let pollTimer = null;
+
+  function setStatus(mode, html) {
+      if (!paymentStatusEl) return;
+      paymentStatusEl.className = mode; // 'pending' | 'success' | 'failed'
+      paymentStatusEl.style.display = 'block';
+      paymentStatusEl.innerHTML = html;
+  }
+
+  function pollPaymentStatus() {
+      fetch('/api/check_payment')
+          .then(res => res.json())
+          .then(data => {
+              if (data.status === 'no_pending_payment') {
+                  return; // nothing to poll, stay quiet
+              }
+
+              if (data.status === 'success') {
+                  clearInterval(pollTimer);
+                  setStatus('success', 'Payment confirmed! Refreshing your balance...');
+                  setTimeout(() => window.location.reload(), 1500);
+                  return;
+              }
+
+              if (data.status === 'failed') {
+                  clearInterval(pollTimer);
+                  setStatus('failed', 'Payment was not completed. If money left your account, it will still reflect shortly — otherwise please try again.');
+                  const btn = document.querySelector('#payForm button');
+                  if (btn) { btn.disabled = false; btn.innerText = 'Pay via M-Pesa'; }
+                  return;
+              }
+
+              // status === 'pending'
+              pollAttempts++;
+              setStatus('pending', '<span class="spinner"></span>Waiting for M-Pesa confirmation...');
+
+              if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+                  clearInterval(pollTimer);
+                  setStatus('pending', 'Still waiting on confirmation. If you completed the PIN prompt, your payment will appear here shortly once processed.');
+                  const btn = document.querySelector('#payForm button');
+                  if (btn) { btn.disabled = false; btn.innerText = 'Pay via M-Pesa'; }
+              }
+          })
+          .catch(() => {
+              // Silently ignore transient network errors; next tick will retry.
+          });
+  }
+
+  // Start polling automatically whenever this page loads with a success flash
+  // message present (meaning an STK push was just sent), and also right after
+  // the payment form is submitted, so the user sees live status either way.
+  document.addEventListener('DOMContentLoaded', () => {
+      const successAlert = document.querySelector('.mpesa-alert');
+      if (successAlert) {
+          pollTimer = setInterval(pollPaymentStatus, 3000);
+          pollPaymentStatus(); // fire immediately instead of waiting 3s
+      }
+  });
 </script>
 
 </body>

@@ -1,7 +1,7 @@
 import io
 import os
-from dotenv import load_dotenv # NEW
-from mpesa import trigger_stk_push
+from dotenv import load_dotenv  # NEW
+from mpesa import trigger_stk_push, query_stk_status
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, session, flash
 from models import db, Tenant, Unit, Lease, Transaction, Repair
 import pandas as pd
@@ -34,7 +34,7 @@ def owner_dashboard():
     tenants = Tenant.query.all()
     transactions = Transaction.query.all()
     repairs = Repair.query.order_by(Repair.date_filed.desc()).all()
-    
+
     # Fetch past tenants for the checkout history table
     cleared_leases = Lease.query.filter_by(notice_status='Cleared').order_by(Lease.end_date.desc()).all()
 
@@ -48,15 +48,15 @@ def owner_dashboard():
         'total_units': len(units),
         'occupied_units': sum(1 for u in units if u.status == 'Occupied')
     }
-    
+
     today = date.today()
     next_month = today.month + 1 if today.month < 12 else 1
     next_year = today.year if today.month < 12 else today.year + 1
     default_due = date(next_year, next_month, 8)
 
     return render_template(
-        'owner_dashboard.html', 
-        leases=leases, units=units, tenants=tenants, 
+        'owner_dashboard.html',
+        leases=leases, units=units, tenants=tenants,
         transactions=transactions, repairs=repairs, summary=summary,
         cleared_leases=cleared_leases, today=today, default_due=default_due
     )
@@ -81,12 +81,12 @@ def add_tenant():
     emergency_contact_name = request.form.get('emergency_contact_name')
     emergency_contact = request.form.get('emergency_contact')
     unit_id = int(request.form.get('unit_id'))
-    
+
     # REMOVED: Holiday mode from onboarding. Everyone starts at the standard rate.
     unit = db.session.get(Unit, unit_id)
     standard_rate = unit.standard_rate if unit else 0.0
-    agreed_rate = standard_rate 
-    
+    agreed_rate = standard_rate
+
     deposit_paid = 0.0
     starting_balance = -agreed_rate
     due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
@@ -112,11 +112,11 @@ def add_tenant():
         tenant_id=tenant_id_to_use, unit_id=unit_id, agreed_rate=agreed_rate, due_date=due_date,
         start_date=date.today(), current_balance=starting_balance, deposit_paid=deposit_paid, notice_status='Active'
     )
-    
+
     if unit: unit.status = 'Occupied'
     db.session.add(new_lease)
     db.session.commit()
-    
+
     flash(f"Success! {full_names} has been registered to Door {unit.door_number}.", "success")
     return redirect(url_for('owner_dashboard'))
 
@@ -125,9 +125,9 @@ def toggle_holiday(lease_id):
     lease = db.session.get(Lease, lease_id)
     if not lease:
         return redirect(url_for('owner_dashboard'))
-        
+
     discount = lease.unit.standard_rate / 2
-    
+
     # SMART TOGGLE LOGIC
     if lease.agreed_rate == lease.unit.standard_rate:
         # Turn ON Holiday Mode: Cut rate in half and instantly credit their balance
@@ -139,7 +139,7 @@ def toggle_holiday(lease_id):
         lease.agreed_rate = lease.unit.standard_rate
         lease.current_balance -= discount
         flash(f"Holiday Mode REMOVED for {lease.tenant.full_names}. Standard rent rate restored.", "success")
-        
+
     db.session.commit()
     return redirect(url_for('owner_dashboard'))
 
@@ -165,11 +165,11 @@ def file_notice(lease_id):
 def release_tenant(lease_id):
     lease = Lease.query.get_or_404(lease_id)
     condition = request.form.get('condition')
-    
+
     deduction_str = request.form.get('deduction_amount')
     deduction_amount = float(deduction_str) if deduction_str else 0.0
     deduction_reason = request.form.get('deduction_reason', '')
-    
+
     if condition != 'Good' and deduction_amount > 0:
         new_repair = Repair(unit_id=lease.unit_id, description=f"Checkout deduction: {deduction_reason} ({lease.tenant.full_names})", cost=deduction_amount)
         db.session.add(new_repair)
@@ -179,12 +179,12 @@ def release_tenant(lease_id):
 
     unit = db.session.get(Unit, lease.unit_id)
     if unit: unit.status = 'Vacant'
-        
+
     lease.notice_status = 'Cleared'
     lease.deposit_returned = lease.deposit_paid - deduction_amount
     lease.end_date = date.today()
     db.session.commit()
-    
+
     return redirect(url_for('owner_dashboard'))
 
 @app.route('/export/system_backup')
@@ -193,7 +193,7 @@ def system_backup():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         kra_query = "SELECT u.door_number AS \"Door Number\", COALESCE(SUM(t.amount_paid), 0) AS \"Gross Rent Income (KES)\", COALESCE((SELECT SUM(cost) FROM repairs r WHERE r.unit_id = u.id), 0) AS \"Deductible Repairs (KES)\", (COALESCE(SUM(t.amount_paid), 0) - COALESCE((SELECT SUM(cost) FROM repairs r WHERE r.unit_id = u.id), 0)) AS \"Net Taxable Income (KES)\" FROM units u LEFT JOIN leases l ON u.id = l.unit_id LEFT JOIN transactions t ON l.id = t.lease_id GROUP BY u.id, u.door_number"
         pd.read_sql_query(kra_query, db.engine).to_excel(writer, index=False, sheet_name='KRA Summary')
-        
+
         tx_query = "SELECT t.payment_date AS \"Date Paid\", t.mpesa_receipt AS \"M-Pesa Code\", ten.full_names AS \"Tenant Name\", u.door_number AS \"Door Number\", t.amount_paid AS \"Amount (KES)\" FROM transactions t JOIN leases l ON t.lease_id = l.id JOIN tenants ten ON l.tenant_id = ten.id JOIN units u ON l.unit_id = u.id ORDER BY t.payment_date DESC"
         pd.read_sql_query(tx_query, db.engine).to_excel(writer, index=False, sheet_name='Transactions')
 
@@ -214,7 +214,7 @@ def tenant_portal():
     if request.method == 'POST':
         national_id = request.form.get('national_id')
         phone_number = request.form.get('phone_number')
-        
+
         tenant = Tenant.query.filter_by(national_id=national_id, phone_number=phone_number).first()
         if tenant:
             session['tenant_id'] = tenant.id
@@ -229,11 +229,11 @@ def tenant_portal():
             transactions = []
             if lease:
                 transactions = Transaction.query.filter_by(lease_id=lease.id).order_by(Transaction.payment_date.desc()).all()
-            
+
             return render_template('tenant_portal.html', tenant=tenant, lease=lease, transactions=transactions, today=date.today())
         else:
             session.pop('tenant_id', None)
-            
+
     return render_template('tenant_portal.html')
 
 @app.route('/tenant/give_notice', methods=['POST'])
@@ -255,13 +255,13 @@ def tenant_logout():
 def tenant_pay():
     if 'tenant_id' not in session:
         return redirect(url_for('tenant_portal'))
-        
+
     tenant = db.session.get(Tenant, session['tenant_id'])
     lease = Lease.query.filter_by(tenant_id=tenant.id, notice_status='Active').first()
-    
+
     if not lease:
         return redirect(url_for('tenant_portal'))
-        
+
     try:
         payment_amount = float(request.form.get('amount'))
         if payment_amount <= 0:
@@ -276,20 +276,46 @@ def tenant_pay():
 
     phone_number = tenant.phone_number
     account_ref = f"Door {lease.unit.door_number}"
-    
-    transactions = Transaction.query.filter_by(lease_id=lease.id).order_by(Transaction.payment_date.desc()).all()
-    
-    # ... (keep the top half of tenant_pay the same up to trigger_stk_push) ...
-    
+
     response = trigger_stk_push(phone_number, payment_amount, account_ref)
-    
+
     if response.get('ResponseCode') == '0':
+        # Store the CheckoutRequestID so the frontend can poll /api/check_payment
+        # as a fallback in case the callback webhook doesn't arrive (common on sandbox).
+        session['pending_checkout_id'] = response.get('CheckoutRequestID')
         flash(f"STK Push for KES {payment_amount} sent successfully to {phone_number}. Please check your phone to enter your PIN.", "success")
     else:
         error_msg = response.get('errorMessage', 'Failed to initiate M-Pesa push. Please try again.')
         flash(error_msg, "error")
-        
+
     return redirect(url_for('tenant_portal'))
+
+# --- STK PUSH STATUS POLLING (fallback for when the callback webhook is delayed/missing) ---
+@app.route('/api/check_payment')
+def check_payment():
+    checkout_id = session.get('pending_checkout_id')
+    if not checkout_id:
+        return jsonify({"status": "no_pending_payment"})
+
+    result = query_stk_status(checkout_id)
+    result_code = result.get('ResultCode')
+
+    # NOTE: This route only reports status to the frontend for UX purposes.
+    # It intentionally does NOT write to the Transaction table -- /mpesa/callback
+    # remains the single source of truth for recording payments, since it carries
+    # the M-Pesa receipt number and full metadata. If the callback later arrives
+    # (even after this reports success), the existing_tx check in mpesa_callback
+    # prevents any double-processing.
+    if result_code == '0':
+        session.pop('pending_checkout_id', None)
+        return jsonify({"status": "success", "raw": result})
+    elif result_code is not None:
+        # Non-zero ResultCode means failed/cancelled (e.g. '1032' = cancelled by user)
+        session.pop('pending_checkout_id', None)
+        return jsonify({"status": "failed", "raw": result})
+    else:
+        # No ResultCode yet usually means Safaricom is still processing
+        return jsonify({"status": "pending", "raw": result})
 
 # --- PULSE CHECKER FOR AUTO-REFRESH ---
 @app.route('/api/tx_count')
@@ -302,7 +328,7 @@ def tx_count():
 def mpesa_callback():
     data = request.json
     print("=== M-PESA WEBHOOK TRIGGERED ===")
-    
+
     try:
         stk_callback = data.get('Body', {}).get('stkCallback', {})
         if stk_callback.get('ResultCode') == 0:
@@ -310,25 +336,25 @@ def mpesa_callback():
             amount = float(next(item['Value'] for item in metadata if item['Name'] == 'Amount'))
             receipt = next(item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber')
             phone = str(next(item['Value'] for item in metadata if item['Name'] == 'PhoneNumber'))
-            
+
             print(f"Extracted -> Phone: {phone}, Amount: {amount}, Receipt: {receipt}")
 
             with app.app_context():
                 phone_suffix = phone[-9:]
-                
+
                 lease = Lease.query.join(Tenant).filter(Tenant.phone_number.like(f"%{phone_suffix}")).order_by(Lease.id.desc()).first()
-                
+
                 if lease:
                     print(f"Found Lease for Tenant: {lease.tenant.full_names} (Door {lease.unit.door_number})")
-                    
+
                     if lease.notice_status == 'Cleared':
                         lease.notice_status = 'Active'
-                        
+
                     existing_tx = Transaction.query.filter_by(mpesa_receipt=receipt).first()
                     if not existing_tx:
                         new_tx = Transaction(lease_id=lease.id, amount_paid=float(amount), mpesa_receipt=receipt)
                         db.session.add(new_tx)
-                        
+
                         # SMART ALLOCATION LOGIC
                         payment_remaining = amount
                         deposit_owed = lease.unit.standard_rate - lease.deposit_paid
@@ -352,12 +378,12 @@ def mpesa_callback():
                     print(f"Error: No lease found associated with phone suffix '{phone_suffix}'.")
         else:
             print(f"Payment failed or cancelled by user. ResultCode: {stk_callback.get('ResultCode')}")
-            
+
     except Exception as e:
         print(f"CRITICAL CALLBACK EXCEPTION: {e}")
         import traceback
         traceback.print_exc()
-        
+
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"}), 200
 
 if __name__ == '__main__':
