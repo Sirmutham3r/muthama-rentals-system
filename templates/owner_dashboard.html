@@ -19,6 +19,7 @@
   .nav{display:flex; flex-direction:column; gap:2px;}
   .nav-item{ display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:var(--radius-sm); color:#C9D6CE; font-size:14px; font-weight:500; border:none; background:transparent; width:100%; text-align:left; transition:background .15s ease; }
   .nav-item.active{background:var(--money-green); color:#fff;}
+  .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--brick); color:#fff; font-size:11px; font-weight:700; line-height:1; }
   
   .main{ display:flex; flex-direction:column; min-width:0; }
   .topbar{ background:var(--paper-raised); border-bottom:1px solid var(--sage-line); padding:18px 32px; display:flex; justify-content:space-between; }
@@ -52,6 +53,32 @@
   
   .unit-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; margin-top:20px;}
   .unit-card{ background:var(--paper-raised); border:1px solid var(--sage-line); border-radius:var(--radius-md); padding:16px; box-shadow:var(--shadow);}
+
+  /* NOTICE REMINDER BANNER — persists across every tab, not just Notices & Checkout,
+     so it's impossible to miss even if the owner never opens that tab. */
+  .notice-reminder-banner{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:var(--gold-bg); border:1px solid #d5be86; color:#5a4b27;
+    border-radius:var(--radius-md); padding:14px 16px; margin-bottom:20px;
+    box-shadow:var(--shadow);
+  }
+  .notice-reminder-icon{ font-size:22px; line-height:1; flex-shrink:0; }
+  .notice-reminder-text{ flex:1; min-width:220px; }
+  .notice-reminder-text strong{ display:block; color:#8F3D1F; font-size:14px; margin-bottom:6px; }
+  .notice-reminder-list{ font-size:12.5px; color:#5a4b27; display:flex; flex-direction:column; gap:4px; }
+  .notice-reminder-row{ display:flex; justify-content:space-between; gap:12px; }
+  .notice-reminder-row .days-left{ font-weight:700; white-space:nowrap; }
+  .notice-reminder-row .days-left.overdue{ color:var(--brick-deep); }
+  .notice-reminder-btn{ background:#8F3D1F; color:#fff; flex-shrink:0; }
+
+  /* Urgent variant: at least one tenant is within 7 days of the 1-month mark
+     (or past it). Switches the banner from gold "heads up" to brick "act now". */
+  .notice-reminder-banner.notice-reminder-urgent{
+    background:#F7E4DC; border-color:#B5502A; color:#8F3D1F;
+  }
+  .notice-reminder-banner.notice-reminder-urgent .notice-reminder-text strong,
+  .notice-reminder-banner.notice-reminder-urgent .notice-reminder-list{ color:#8F3D1F; }
+  .notice-reminder-banner.notice-reminder-urgent .notice-reminder-btn{ background:var(--brick-deep); }
 
   /* ==============================================================
      BULLETPROOF MOBILE RESPONSIVE OVERRIDES
@@ -172,6 +199,11 @@
           display: block !important;
       }
       table.ledger td[colspan]::before { content: none; }
+
+      /* Notice reminder banner: keep the button full-width and let text wrap under
+         the icon on narrow screens, matching how other banners collapse on mobile. */
+      .notice-reminder-banner { padding: 12px !important; gap: 10px !important; }
+      .notice-reminder-btn { width: 100% !important; justify-content: center !important; }
   }
   
   /* Extremely small screens (force single column stats) */
@@ -181,6 +213,7 @@
 </style>
 </head>
 <body>
+{% set pending_notices = leases | selectattr('notice_status', 'equalto', 'Notice Given') | list %}
 <div class="shell">
   <aside class="sidebar">
     <div class="brand">
@@ -191,7 +224,7 @@
       <button class="nav-item active" data-tab="dashboard">Dashboard</button>
       <button class="nav-item" data-tab="units">Units</button>
       <button class="nav-item" data-tab="tenants">Tenants</button>
-      <button class="nav-item" data-tab="notices">Notices & Checkout</button>
+      <button class="nav-item" data-tab="notices">Notices & Checkout{% if pending_notices %} <span class="nav-badge">{{ pending_notices|length }}</span>{% endif %}</button>
       <button class="nav-item" data-tab="repairs">Repairs & Maint.</button>
       <button class="nav-item" data-tab="reports">Reports</button>
     </nav>
@@ -201,6 +234,44 @@
       <h1 id="pageTitle">Dashboard</h1>
     </header>
     <main class="content">
+
+      <!-- PENDING NOTICE REMINDER — always visible, on every tab, so a notice
+           can't get missed just because the owner never opens Notices & Checkout.
+           Each row shows how many of the 30 notice days are left; the banner
+           turns "urgent" (brick) once any tenant has 7 or fewer days left. -->
+      {% if pending_notices %}
+        {% set ns = namespace(urgent=false) %}
+        {% for lease in pending_notices %}
+          {% if lease.notice_date and (today - lease.notice_date).days >= 23 %}
+            {% set ns.urgent = true %}
+          {% endif %}
+        {% endfor %}
+        <div class="notice-reminder-banner{{ ' notice-reminder-urgent' if ns.urgent else '' }}">
+          <div class="notice-reminder-icon">🔔</div>
+          <div class="notice-reminder-text">
+            <strong>{{ pending_notices|length }} tenant{{ 's' if pending_notices|length != 1 else '' }} given notice — checkout inspection pending</strong>
+            <div class="notice-reminder-list">
+              {% for lease in pending_notices %}
+                <div class="notice-reminder-row">
+                  <span>{{ lease.tenant.full_names }} (Door {{ lease.unit.door_number }})</span>
+                  {% if lease.notice_date %}
+                    {% set days_elapsed = (today - lease.notice_date).days %}
+                    {% set days_left = 30 - days_elapsed %}
+                    {% if days_left > 0 %}
+                      <span class="days-left">{{ days_left }} day{{ 's' if days_left != 1 else '' }} left</span>
+                    {% else %}
+                      <span class="days-left overdue">Move-out due</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="days-left" style="font-weight:400; color:var(--muted);">no filed date on record</span>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm notice-reminder-btn" onclick="document.querySelector('[data-tab=&quot;notices&quot;]').click();">Review Now</button>
+        </div>
+      {% endif %}
       
       <!-- OWNER SUCCESS / ERROR ALERTS -->
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -241,13 +312,13 @@
             <form action="/add_tenant" method="POST">
               <div class="field-row">
                 <div class="field"><label>Full names</label><input type="text" name="full_names" required></div>
-                <div class="field"><label>National ID</label><input type="text" name="national_id" required></div>
+                <div class="field"><label>National ID</label><input type="text" name="national_id" inputmode="numeric" pattern="[0-9]+" maxlength="10" title="Numbers only" required oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
               </div>
               <div class="field-row">
-                <div class="field"><label>Phone number</label><input type="text" name="phone_number" required></div>
-                <div class="field"><label>Emergency Contact</label><input type="text" name="emergency_contact" required></div>
+                <div class="field"><label>Phone number</label><input type="text" name="phone_number" inputmode="numeric" pattern="254[0-9]{9}" maxlength="12" placeholder="2547XXXXXXXX" title="Must start with 254 followed by 9 digits — numbers only" required oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
+                <div class="field"><label>Emergency Contact Name</label><input type="text" name="emergency_contact" required></div>
               </div>
-              <div class="field"><label>Emergency Contact Name</label><input type="text" name="emergency_contact_name" required></div>
+              <div class="field"><label>Emergency Contact </label><input type="text" name="emergency_contact_name" inputmode="numeric" pattern="254[0-9]{9}" maxlength="12" placeholder="2547XXXXXXXX" title="Must start with 254 followed by 9 digits — numbers only" required oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
               
               <div class="field">
                 <label>Assign vacant unit</label>

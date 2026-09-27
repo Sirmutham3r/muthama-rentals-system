@@ -42,7 +42,12 @@ class Lease(db.Model):
     deposit_returned = db.Column(db.Float, nullable=True) 
     deduction_reason = db.Column(db.String(255), nullable=True)
     
-    notice_status = db.Column(db.String(20), default='Active') 
+    notice_status = db.Column(db.String(20), default='Active')
+    # NEW: stamped the day a tenant submits their 1-month notice to vacate.
+    # Nullable because leases already sitting at 'Notice Given' before this
+    # column existed won't have a value -- the app/template must handle None.
+    notice_date = db.Column(db.Date, nullable=True)
+
     transactions = db.relationship('Transaction', backref='lease', lazy=True)
 
 class Transaction(db.Model):

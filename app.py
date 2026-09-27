@@ -75,12 +75,22 @@ def add_unit():
 @app.route('/add_tenant', methods=['POST'])
 def add_tenant():
     full_names = request.form.get('full_names')
-    national_id = request.form.get('national_id')
+    national_id = request.form.get('national_id').strip()
     institution_work = request.form.get('institution_work')
-    phone_number = request.form.get('phone_number')
+    phone_number = request.form.get('phone_number').strip()
     emergency_contact_name = request.form.get('emergency_contact_name')
     emergency_contact = request.form.get('emergency_contact')
     unit_id = int(request.form.get('unit_id'))
+
+    # --- NEW VALIDATION FIREWALL ---
+    if not national_id.isdigit():
+        flash("Registration Failed: National ID must contain only numbers.", "error")
+        return redirect(url_for('owner_dashboard'))
+
+    if not phone_number.isdigit() or not phone_number.startswith('254') or len(phone_number) != 12:
+        flash("Registration Failed: Phone number must start with 254 and be exactly 12 digits.", "error")
+        return redirect(url_for('owner_dashboard'))
+    # -------------------------------
 
     # REMOVED: Holiday mode from onboarding. Everyone starts at the standard rate.
     unit = db.session.get(Unit, unit_id)
@@ -158,6 +168,7 @@ def add_repair():
 def file_notice(lease_id):
     lease = Lease.query.get_or_404(lease_id)
     lease.notice_status = 'Notice Given'
+    lease.notice_date = date.today()
     db.session.commit()
     return redirect(url_for('owner_dashboard'))
 
@@ -242,6 +253,7 @@ def tenant_give_notice():
     lease = Lease.query.filter_by(tenant_id=session['tenant_id'], notice_status='Active').first()
     if lease:
         lease.notice_status = 'Notice Given'
+        lease.notice_date = date.today()
         db.session.commit()
     return redirect(url_for('tenant_portal'))
 
