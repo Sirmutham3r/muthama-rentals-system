@@ -12,7 +12,15 @@ class Tenant(db.Model):
     phone_number = db.Column(db.String(15), nullable=False)
     emergency_contact_name = db.Column(db.String(100), nullable=False)
     emergency_contact = db.Column(db.String(15), nullable=False)
+
     leases = db.relationship('Lease', backref='tenant', lazy=True)
+
+    # NEW: login verification (OTP sent via SMS).
+    # otp_code_hash stores a werkzeug hash of the 6-digit code, never the
+    # code itself -- so a DB leak alone can't be used to log in as a tenant.
+    otp_code_hash = db.Column(db.String(255), nullable=True)
+    otp_expires_at = db.Column(db.DateTime, nullable=True)
+    otp_attempts = db.Column(db.Integer, default=0)
 
 class Unit(db.Model):
     __tablename__ = 'units'

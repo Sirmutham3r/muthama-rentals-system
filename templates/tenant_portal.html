@@ -52,6 +52,16 @@
 </head>
 <body>
 <div class="card">
+  {% if not tenant %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="auth-alert" style="padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 15px; text-align: center; border: 1px solid {% if category == 'success' %}#C4D2C6; background: #E4F1E4; color: #2E7D32;{% else %}#B5502A; background: #F7E4DC; color: #B5502A;{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endwith %}
+  {% endif %}
+
   {% if tenant %}
     <h2 style="text-align:center; font-family: 'Roboto Slab', serif; margin-bottom: 20px;">Hello, {{ tenant.full_names.split()[0] }}</h2>
     
@@ -230,6 +240,22 @@
       </div>
     {% endif %}
     
+  {% elif otp_pending %}
+    <h2 style="text-align:center; font-family: 'Roboto Slab', serif; margin-bottom: 10px;">Verify Your Phone</h2>
+    <p style="text-align:center; color:#6B7A72; font-size:14px; line-height:1.5; margin-bottom:20px;">
+      Enter the 6-digit code we sent to <strong style="color:#12211C;">{{ masked_phone }}</strong>. It expires in 5 minutes.
+    </p>
+    <form action="/tenant/verify_otp" method="POST">
+      <input type="text" name="otp_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="------" title="Enter the 6-digit code" required autofocus oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="width:100%; padding:14px; border: 1px solid #C4D2C6; border-radius:6px; font-size:24px; letter-spacing:8px; text-align:center; font-weight:700; box-sizing:border-box;">
+      <button type="submit" class="btn">Verify &amp; Log In</button>
+    </form>
+    <form action="/tenant/resend_otp" method="POST">
+      <button type="submit" class="btn btn-outline">Resend Code</button>
+    </form>
+    <div style="text-align:center; margin-top:20px;">
+      <a href="/tenant/logout" style="color:#6B7A72; font-size:13px; text-decoration:underline;">Use a different account</a>
+    </div>
+
   {% else %}
     <h2 style="text-align:center; font-family: 'Roboto Slab', serif;">Tenant Login</h2>
     <form action="/tenant" method="POST">
