@@ -23,6 +23,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 300,
 }
 
+db.init_app(app)
+
 @app.route('/')
 def owner_dashboard():
     leases = Lease.query.all()
