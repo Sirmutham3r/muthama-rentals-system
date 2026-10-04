@@ -3,7 +3,6 @@ import os
 import secrets
 from dotenv import load_dotenv  # NEW
 from mpesa import trigger_stk_push, query_stk_status
-from sms import send_sms
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, session, flash
 from models import db, Tenant, Unit, Lease, Transaction, Repair
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -23,50 +22,6 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
 }
-
-app.secret_key = os.getenv('SECRET_KEY')
-db.init_app(app)
-
-with app.app_context():
-    db.create_all()
-
-OTP_VALIDITY_MINUTES = 5
-OTP_MAX_ATTEMPTS = 5
-
-def generate_and_send_otp(tenant):
-    """Generates a fresh 6-digit code, stores its hash on the tenant with a
-    5-minute expiry, resets the attempt counter, and texts it out.
-    Returns True if the SMS was accepted for delivery, False otherwise
-    (the code is still saved either way, so a 'resend' can be tried again
-    without erroring the DB state)."""
-    code = f"{secrets.randbelow(1_000_000):06d}"
-    tenant.otp_code_hash = generate_password_hash(code)
-    tenant.otp_expires_at = datetime.utcnow() + timedelta(minutes=OTP_VALIDITY_MINUTES)
-    tenant.otp_attempts = 0
-    db.session.commit()
-
-    message = f"Muthama Rentals verification code: {code}. It expires in {OTP_VALIDITY_MINUTES} minutes. Do not share this code."
-    return send_sms(tenant.phone_number, message)
-
-OTP_RESEND_COOLDOWN_SECONDS = 60
-
-def otp_cooldown_remaining(tenant):
-    """Seconds left before another SMS may be sent to this tenant (0 = free to send).
-    The send time is derived from the expiry (expiry = sent time + validity window),
-    so no extra DB column is needed. Stops anyone who knows a tenant's ID + phone
-    from spamming that phone with codes, and from farming fresh 5-guess allowances."""
-    if not tenant.otp_expires_at:
-        return 0
-    sent_at = tenant.otp_expires_at - timedelta(minutes=OTP_VALIDITY_MINUTES)
-    elapsed = (datetime.utcnow() - sent_at).total_seconds()
-    return max(0, int(OTP_RESEND_COOLDOWN_SECONDS - elapsed) + 1) if elapsed < OTP_RESEND_COOLDOWN_SECONDS else 0
-
-def mask_phone(phone):
-    """'254712345678' -> '2547*****678' -- enough for a tenant to recognise
-    their own number without exposing the full thing on a shared screen."""
-    if not phone or len(phone) < 8:
-        return phone
-    return phone[:4] + ('*' * (len(phone) - 7)) + phone[-3:]
 
 @app.route('/')
 def owner_dashboard():
